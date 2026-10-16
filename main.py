@@ -20,11 +20,11 @@ MODEL = "openai/gpt-oss-120b"
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS_URL = "https://api.groq.com/openai/v1/models"
 
-BG = (0.035, 0.055, 0.10, 1)
-PANEL = (0.07, 0.10, 0.17, 1)
-CYAN = (0.15, 0.78, 0.95, 1)
+BG = (0.018, 0.018, 0.024, 1)
+PANEL = (0.085, 0.022, 0.030, 1)
+RED = (0.78, 0.045, 0.09, 1)
 WHITE = (0.92, 0.96, 1, 1)
-MUTED = (0.60, 0.70, 0.80, 1)
+MUTED = (0.66, 0.53, 0.55, 1)
 
 Window.clearcolor = BG
 
@@ -45,9 +45,9 @@ def write_json(path, value):
     tmp.replace(path)
 
 
-class TitanApp(App):
+class DsaApp(App):
     def build(self):
-        self.title = "TITAN AI"
+        self.title = "DSA AI"
         self.data_dir = Path(self.user_data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.memory_path = self.data_dir / "memory.json"
@@ -58,14 +58,21 @@ class TitanApp(App):
         self.memory = read_json(self.memory_path, [])
         self.notes = read_json(self.notes_path, [])
         self.settings = read_json(self.settings_path, {
-            "assistant_name": "TITAN",
+            "assistant_name": "DSA",
             "personality": (
-                "You are TITAN, a friendly, honest AI assistant. "
+                "You are DSA, a friendly, honest AI assistant. "
                 "Help the user learn Python and build projects. "
                 "Explain things clearly and do not pretend to know facts "
                 "you do not know."
             )
         })
+        # Migrate settings from the previous TITAN branding to DSA.
+        if self.settings.get("assistant_name") == "TITAN":
+            self.settings["assistant_name"] = "DSA"
+        if isinstance(self.settings.get("personality"), str):
+            self.settings["personality"] = self.settings["personality"].replace("TITAN", "DSA")
+        write_json(self.settings_path, self.settings)
+
         self.chats = read_json(self.chats_path, [])
         if not isinstance(self.memory, list):
             self.memory = []
@@ -82,8 +89,8 @@ class TitanApp(App):
 
         header = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
         self.title_label = Label(
-            text="[b]TITAN AI V2[/b]",
-            markup=True, color=CYAN, font_size="22sp",
+            text="[b]DSA AI V2[/b]",
+            markup=True, color=RED, font_size="22sp",
             halign="left", valign="middle"
         )
         self.title_label.bind(size=lambda w, s: setattr(w, "text_size", s))
@@ -100,11 +107,11 @@ class TitanApp(App):
             hint_text="Groq API key (hidden while typing)",
             password=True, multiline=False, write_tab=False,
             foreground_color=WHITE, background_color=PANEL,
-            hint_text_color=MUTED, cursor_color=CYAN,
+            hint_text_color=MUTED, cursor_color=RED,
             padding=[dp(10), dp(12), dp(10), dp(8)]
         )
         key_row.add_widget(self.key_input)
-        connect_btn = self.make_button("Connect", CYAN, text_color=BG)
+        connect_btn = self.make_button("Connect", RED, text_color=BG)
         connect_btn.size_hint_x = None
         connect_btn.width = dp(88)
         connect_btn.bind(on_release=self.connect)
@@ -112,7 +119,7 @@ class TitanApp(App):
         root.add_widget(key_row)
 
         self.chat_label = Label(
-            text="[color=8ca6bf]Connect your Groq key, then say hello![/color]",
+            text="[color=b68b91]Connect your Groq key, then say hello![/color]",
             markup=True, color=WHITE, size_hint_y=None,
             halign="left", valign="top", font_size="16sp"
         )
@@ -129,15 +136,15 @@ class TitanApp(App):
 
         entry_row = BoxLayout(size_hint_y=None, height=dp(52), spacing=dp(6))
         self.message_input = TextInput(
-            hint_text="Message TITAN...",
+            hint_text="Message DSA...",
             multiline=False, write_tab=False,
             foreground_color=WHITE, background_color=PANEL,
-            hint_text_color=MUTED, cursor_color=CYAN,
+            hint_text_color=MUTED, cursor_color=RED,
             padding=[dp(10), dp(13), dp(10), dp(8)]
         )
         self.message_input.bind(on_text_validate=self.send_message)
         entry_row.add_widget(self.message_input)
-        send_btn = self.make_button("Send", CYAN, text_color=BG)
+        send_btn = self.make_button("Send", RED, text_color=BG)
         send_btn.size_hint_x = None
         send_btn.width = dp(72)
         send_btn.bind(on_release=self.send_message)
@@ -175,7 +182,7 @@ class TitanApp(App):
         p = Popup(
             title=title, content=content,
             size_hint=(0.92, None), height=height,
-            separator_color=CYAN, background_color=PANEL
+            separator_color=RED, background_color=PANEL
         )
         p.open()
         return p
@@ -183,19 +190,19 @@ class TitanApp(App):
     def show_chat(self, extra=""):
         lines = []
         if not self.messages:
-            lines.append("[color=8ca6bf]New conversation. Type a message below.[/color]")
+            lines.append("[color=b68b91]New conversation. Type a message below.[/color]")
         for item in self.messages:
             role = item.get("role")
             text = item.get("content", "")
             safe_text = (str(text).replace("&", "&amp;")
                          .replace("[", "&bl;").replace("]", "&br;"))
             if role == "user":
-                lines.append(f"[b][color=4de0a5]YOU[/color][/b]\n{safe_text}")
+                lines.append(f"[b][color=d9d0d1]YOU[/color][/b]\n{safe_text}")
             elif role == "assistant":
-                name = self.settings.get("assistant_name", "TITAN")
-                lines.append(f"[b][color=49cfff]{name}[/color][/b]\n{safe_text}")
+                name = self.settings.get("assistant_name", "DSA")
+                lines.append(f"[b][color=ff4659]{name}[/color][/b]\n{safe_text}")
         if extra:
-            lines.append(f"[color=8ca6bf]{extra}[/color]")
+            lines.append(f"[color=b68b91]{extra}[/color]")
         self.chat_label.text = "\n\n".join(lines)
         Clock.schedule_once(lambda dt: setattr(self.scroll, "scroll_y", 0), 0.1)
 
@@ -256,7 +263,7 @@ class TitanApp(App):
             self.api_key = ""
             self.show_chat("Connection error: " + detail)
         else:
-            self.show_chat("Connected to Groq. TITAN is ready!")
+            self.show_chat("Connected to Groq. DSA is ready!")
 
     def send_message(self, *args):
         text = self.message_input.text.strip()
@@ -267,12 +274,12 @@ class TitanApp(App):
             return
         self.message_input.text = ""
         self.messages.append({"role": "user", "content": text})
-        self.show_chat("TITAN is thinking...")
+        self.show_chat("DSA is thinking...")
         threading.Thread(target=self._request_reply, args=(text,), daemon=True).start()
 
     def _request_reply(self, user_text):
         system_prompt = (
-            self.settings.get("personality", "You are TITAN, a helpful AI.")
+            self.settings.get("personality", "You are DSA, a helpful AI.")
             + "\n\nSaved user memories:\n"
             + "\n".join("- " + str(x) for x in self.memory[-40:])
         )
@@ -330,10 +337,10 @@ class TitanApp(App):
         scroll.add_widget(listing)
         box.add_widget(scroll)
         row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
-        add = self.make_button("Save memory", CYAN, BG)
+        add = self.make_button("Save memory", RED, BG)
         close = self.make_button("Close", PANEL)
         row.add_widget(add); row.add_widget(close); box.add_widget(row)
-        pop = self.popup("TITAN Memory", box, dp(480))
+        pop = self.popup("DSA Memory", box, dp(480))
         def do_add(*_):
             value = inp.text.strip()
             if value:
@@ -356,10 +363,10 @@ class TitanApp(App):
                      texture_size=lambda w, v: setattr(w, "height", v[1] + dp(10)))
         scroll.add_widget(listing); box.add_widget(scroll)
         row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
-        add = self.make_button("Save note", CYAN, BG)
+        add = self.make_button("Save note", RED, BG)
         close = self.make_button("Close", PANEL)
         row.add_widget(add); row.add_widget(close); box.add_widget(row)
-        pop = self.popup("TITAN Notes", box, dp(500))
+        pop = self.popup("DSA Notes", box, dp(500))
         def do_add(*_):
             value = inp.text.strip()
             if value:
@@ -387,7 +394,7 @@ class TitanApp(App):
         scroll.add_widget(rows)
         box.add_widget(scroll)
         row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
-        new_btn = self.make_button("New chat", CYAN, BG)
+        new_btn = self.make_button("New chat", RED, BG)
         close_btn = self.make_button("Close", PANEL)
         row.add_widget(new_btn); row.add_widget(close_btn); box.add_widget(row)
         pop = self.popup("Saved conversations", box, dp(500))
@@ -405,7 +412,7 @@ class TitanApp(App):
 
     def settings_popup(self, *args):
         box = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(8))
-        name = TextInput(text=self.settings.get("assistant_name", "TITAN"),
+        name = TextInput(text=self.settings.get("assistant_name", "DSA"),
                          hint_text="Assistant name", size_hint_y=None,
                          height=dp(46), multiline=False)
         personality = TextInput(text=self.settings.get("personality", ""),
@@ -415,11 +422,11 @@ class TitanApp(App):
         box.add_widget(name)
         box.add_widget(Label(text="Personality instructions", size_hint_y=None, height=dp(25)))
         box.add_widget(personality)
-        save = self.make_button("Save settings", CYAN, BG)
+        save = self.make_button("Save settings", RED, BG)
         box.add_widget(save)
-        pop = self.popup("TITAN Settings", box, dp(520))
+        pop = self.popup("DSA Settings", box, dp(520))
         def do_save(*_):
-            self.settings["assistant_name"] = name.text.strip()[:40] or "TITAN"
+            self.settings["assistant_name"] = name.text.strip()[:40] or "DSA"
             self.settings["personality"] = personality.text.strip()[:4000]
             write_json(self.settings_path, self.settings)
             self.title_label.text = f"[b]{self.settings['assistant_name']} AI V2[/b]"
@@ -436,4 +443,4 @@ class TitanApp(App):
 
 
 if __name__ == "__main__":
-    TitanApp().run()
+    DsaApp().run()
