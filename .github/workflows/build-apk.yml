@@ -34,6 +34,11 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev gettext autopoint
 
+      - name: Set up modern Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
@@ -44,31 +49,16 @@ jobs:
           test -f main.py
           test -f buildozer.spec
           echo "TITAN project files found."
+          echo "Android SDK: $ANDROID_HOME"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || true
 
-      - name: Prepare Android SDK and accept licenses
-        shell: bash
-        run: |
-          set -euxo pipefail
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-          # Let Buildozer create/download its SDK toolchain first.
-          buildozer android update || true
-          SDKMANAGER="$(find "$SDK" -type f -name sdkmanager 2>/dev/null | head -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager was not found in $SDK"
-            find "$SDK" -maxdepth 5 -type f 2>/dev/null | head -n 100
-            exit 1
-          fi
-          mkdir -p "$SDK/licenses"
-          # The legacy sdkmanager needs the explicit SDK root argument.
-          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
-          yes | "$SDKMANAGER" --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "build-tools;37.0.0"
-          ls -la "$SDK/build-tools"
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Build TITAN debug APK
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         run: buildozer -v android debug
 
       - name: Upload APK artifact
