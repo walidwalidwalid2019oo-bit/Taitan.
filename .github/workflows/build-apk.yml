@@ -34,10 +34,32 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev gettext autopoint
 
-      - name: Set up modern Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Verify and configure Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${ANDROID_HOME:?ANDROID_HOME was not set by setup-android}"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          echo "Using Android SDK at: $ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aidl"
+          test -d "$ANDROID_HOME/platforms/android-35"
+          echo "Android SDK components are installed and AIDL is executable."
 
       - name: Install Buildozer
         run: |
@@ -48,17 +70,13 @@ jobs:
         run: |
           test -f main.py
           test -f buildozer.spec
-          echo "TITAN project files found."
-          echo "Android SDK: $ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || true
+          echo "Project files found."
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROIDSDK=$ANDROIDSDK"
+          grep -E '^android\.sdk_path' buildozer.spec || true
 
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-      - name: Build TITAN debug APK
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+      - name: Build debug APK
         run: buildozer -v android debug
 
       - name: Upload APK artifact
