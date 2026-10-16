@@ -1,8 +1,8 @@
 [app]
 
-title = TITAN AI
-package.name = titanai
-package.domain = org.titanai
+title = DSA AI
+package.name = dsaai
+package.domain = org.dsaai
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,txt
 version = 2.0.0
