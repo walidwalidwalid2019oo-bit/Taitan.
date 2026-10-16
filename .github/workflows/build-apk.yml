@@ -1,4 +1,3 @@
-
 name: Build TITAN Android APK
 
 on:
@@ -15,10 +14,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -30,13 +29,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git zip unzip wget curl \
-            openjdk-17-jdk \
-            autoconf automake libtool \
-            pkg-config zlib1g-dev \
-            libncurses5-dev libncursesw5-dev \
-            cmake libffi-dev libssl-dev \
-            gettext autopoint
+            git zip unzip wget curl openjdk-17-jdk \
+            autoconf automake libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev gettext autopoint
 
       - name: Install Buildozer
         run: |
@@ -49,38 +45,33 @@ jobs:
           test -f buildozer.spec
           echo "TITAN project files found."
 
-      - name: Initialize Android SDK
-        run: |
-          buildozer android update || true
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-          echo "Android SDK location: $SDK"
-          find "$SDK" -type f -name sdkmanager 2>/dev/null || true
-
-      - name: Install Android SDK build tools
+      - name: Prepare Android SDK and accept licenses
         shell: bash
         run: |
+          set -euxo pipefail
           SDK="$HOME/.buildozer/android/platform/android-sdk"
+          # Let Buildozer create/download its SDK toolchain first.
+          buildozer android update || true
           SDKMANAGER="$(find "$SDK" -type f -name sdkmanager 2>/dev/null | head -n 1)"
-
           if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found. Checking available SDK files:"
-            find "$SDK" -maxdepth 4 -type d 2>/dev/null | head -n 80
+            echo "sdkmanager was not found in $SDK"
+            find "$SDK" -maxdepth 5 -type f 2>/dev/null | head -n 100
             exit 1
           fi
-
-          yes | "$SDKMANAGER" --licenses || true
-          "$SDKMANAGER" \
+          mkdir -p "$SDK/licenses"
+          # The legacy sdkmanager needs the explicit SDK root argument.
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
+          yes | "$SDKMANAGER" --sdk_root="$SDK" \
             "platform-tools" \
             "platforms;android-35" \
-            "build-tools;35.0.0"
-
-          ls "$SDK/build-tools"
+            "build-tools;35.0.0" \
+            "build-tools;37.0.0"
+          ls -la "$SDK/build-tools"
 
       - name: Build TITAN debug APK
-        run: |
-          buildozer -v android debug
+        run: buildozer -v android debug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: titan-ai-debug-apk
