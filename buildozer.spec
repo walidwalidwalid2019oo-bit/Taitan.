@@ -18,3 +18,6 @@ android.minapi = 24
 # Build with the stable python-for-android branch by default.
 # If a future build requires a different toolchain, follow the current
 # Buildozer documentation and change these options accordingly.
+
+# Use the modern Android SDK installed by GitHub Actions.
+android.sdk_path = /usr/local/lib/android/sdk
