@@ -47,7 +47,7 @@ def write_json(path, value):
 
 class DsaApp(App):
     def build(self):
-        self.title = "DSA AI"
+        self.title = "Taitan Prum"
         self.data_dir = Path(self.user_data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.memory_path = self.data_dir / "memory.json"
@@ -89,7 +89,7 @@ class DsaApp(App):
 
         header = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
         self.title_label = Label(
-            text="[b]DSA AI V2[/b]",
+            text="[b]Taitan Prum[/b]",
             markup=True, color=RED, font_size="22sp",
             halign="left", valign="middle"
         )
@@ -429,7 +429,7 @@ class DsaApp(App):
             self.settings["assistant_name"] = name.text.strip()[:40] or "DSA"
             self.settings["personality"] = personality.text.strip()[:4000]
             write_json(self.settings_path, self.settings)
-            self.title_label.text = f"[b]{self.settings['assistant_name']} AI V2[/b]"
+            self.title_label.text = "[b]Taitan Prum[/b]"
             self.show_chat("Settings saved locally.")
             pop.dismiss()
         save.bind(on_release=do_save)
