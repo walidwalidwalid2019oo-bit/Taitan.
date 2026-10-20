@@ -6,7 +6,7 @@ package.domain = org.dsaai
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,txt
 version = 2.0.0
-requirements = python3,kivy,requests
+requirements = python3,kivy
 orientation = portrait
 fullscreen = 0
 
