@@ -14,6 +14,9 @@ jobs:
     name: Build Android debug APK
     runs-on: ubuntu-22.04
     timeout-minutes: 90
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Check out clean project
         uses: actions/checkout@v4
@@ -36,6 +39,13 @@ jobs:
           sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev librsvg2-bin
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer cython==0.29.36
+
+      - name: Accept Android SDK licenses and install required SDK packages
+        run: |
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Render the new TITAN logo
         run: |

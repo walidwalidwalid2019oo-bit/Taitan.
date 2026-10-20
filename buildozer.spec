@@ -13,6 +13,8 @@ android.permissions = INTERNET,RECORD_AUDIO,READ_MEDIA_IMAGES
 android.api = 35
 android.minapi = 24
 android.archs = arm64-v8a
+android.sdk_path = /usr/local/lib/android/sdk
+android.build_tools_version = 35.0.0
 p4a.branch = v2024.01.21
 
 [buildozer]
