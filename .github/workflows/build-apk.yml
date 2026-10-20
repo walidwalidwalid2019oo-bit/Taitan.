@@ -61,6 +61,15 @@ jobs:
           test -d "$ANDROID_HOME/platforms/android-35"
           echo "Android SDK components are installed and AIDL is executable."
 
+      - name: Configure Android SDK for Buildozer
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          mkdir -p "$ANDROID_HOME/tools/bin"
+          ln -sf "$SDKMANAGER" "$ANDROID_HOME/tools/bin/sdkmanager"
+          echo "Buildozer sdkmanager compatibility path configured."
+
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
