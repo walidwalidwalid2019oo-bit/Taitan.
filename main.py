@@ -364,7 +364,8 @@ class TitanApp(App):
             if chat.get("id") == self.current_chat_id:
                 self.chats[index] = record
                 break
-        else:            self.chats.append(record)
+        else:
+            self.chats.append(record)
         save_json(CHATS_FILE, self.chats)
 
     def show_chat(self, *_):
@@ -713,6 +714,7 @@ class TitanApp(App):
         self.video_request_running = True
         self.video_status.text = "Rendering video… this can take a few minutes."
         threading.Thread(target=self._video_worker, args=(prompt, key, model, duration), daemon=True).start()
+
     def _video_worker(self, prompt, key, model, duration):
         try:
             url = POLLINATIONS_VIDEO_URL + urllib.parse.quote(prompt, safe="")
@@ -1062,6 +1064,7 @@ class TitanApp(App):
         self.root_box.add_widget(scroll)
         self.root_box.add_widget(self.label("The active project is added to TITAN's chat context. Your existing chats and notes remain intact.", 10, MUTED, 48))
         self.add_status(f"{len(self.projects)} PROJECT(S)")
+
     def _create_project(self, name):
         name = str(name).strip()[:60]
         if not name:
