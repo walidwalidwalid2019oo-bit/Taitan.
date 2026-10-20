@@ -87,6 +87,15 @@ jobs:
           echo "ANDROIDSDK=$ANDROIDSDK"
           grep -E '^android\.sdk_path' buildozer.spec || true
 
+      - name: Pin compatible pip for Android build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'pip<25\nCython<3\n' > "$RUNNER_TEMP/pip-constraints.txt"
+          echo "PIP_CONSTRAINT=$RUNNER_TEMP/pip-constraints.txt" >> "$GITHUB_ENV"
+          python -m pip install 'pip<25'
+          python -m pip --version
+
       - name: Build debug APK
         run: buildozer -v android debug
 
