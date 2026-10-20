@@ -40,12 +40,15 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer cython==0.29.36
 
-      - name: Accept Android SDK licenses and install required SDK packages
+      - name: Accept Android SDK licenses and prepare sdkmanager compatibility
         run: |
           SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          mkdir -p "$ANDROID_SDK_ROOT/tools/bin"
+          printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$SDKMANAGER" > "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
+          chmod +x "$ANDROID_SDK_ROOT/tools/bin/sdkmanager"
 
       - name: Render the new TITAN logo
         run: |
