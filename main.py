@@ -4,7 +4,8 @@ import json
 import threading
 from pathlib import Path
 
-import requests
+import urllib.error
+import urllib.request
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -241,18 +242,22 @@ class DsaApp(App):
 
     def _check_key(self, key):
         try:
-            r = requests.get(
+            req = urllib.request.Request(
                 MODELS_URL,
                 headers={"Authorization": f"Bearer {key}"},
-                timeout=20
+                method="GET",
             )
-            if r.ok:
-                Clock.schedule_once(lambda dt: self._connect_done(True, "Connected"))
-            else:
-                detail = r.text[:250]
-                Clock.schedule_once(
-                    lambda dt, d=detail: self._connect_done(False, d)
-                )
+            with urllib.request.urlopen(req, timeout=20) as response:
+                if 200 <= response.status < 300:
+                    Clock.schedule_once(lambda dt: self._connect_done(True, "Connected"))
+                else:
+                    detail = response.read().decode("utf-8", errors="replace")[:250]
+                    Clock.schedule_once(
+                        lambda dt, d=detail: self._connect_done(False, d)
+                    )
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="replace")[:250] or str(e)
+            Clock.schedule_once(lambda dt, d=detail: self._connect_done(False, d))
         except Exception as e:
             detail = str(e)
             Clock.schedule_once(lambda dt, d=detail: self._connect_done(False, d))
@@ -290,26 +295,28 @@ class DsaApp(App):
             "max_completion_tokens": 1200
         }
         try:
-            r = requests.post(
+            req = urllib.request.Request(
                 API_URL,
+                data=json.dumps(payload).encode("utf-8"),
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json"
                 },
-                json=payload,
-                timeout=60
+                method="POST",
             )
-            if not r.ok:
-                try:
-                    detail = r.json().get("error", {}).get("message", r.text)
-                except Exception:
-                    detail = r.text
-                raise RuntimeError(f"HTTP {r.status_code}: {detail}")
-            data = r.json()
+            with urllib.request.urlopen(req, timeout=60) as response:
+                data = json.loads(response.read().decode("utf-8"))
             answer = data["choices"][0]["message"]["content"]
             if not answer:
                 answer = "(No text response returned.)"
             Clock.schedule_once(lambda dt, a=answer: self._reply_done(a))
+        except urllib.error.HTTPError as e:
+            try:
+                error_data = json.loads(e.read().decode("utf-8", errors="replace"))
+                detail = error_data.get("error", {}).get("message", str(e))
+            except (ValueError, AttributeError):
+                detail = str(e)
+            Clock.schedule_once(lambda dt, d=detail: self._reply_error(d))
         except Exception as e:
             detail = str(e)
             Clock.schedule_once(lambda dt, d=detail: self._reply_error(d))
