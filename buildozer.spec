@@ -1,23 +1,20 @@
 [app]
-
-title = Taitan Prum
-package.name = dsaai
-package.domain = org.dsaai
+title = TITAN NEON ULTRA
+package.name = titanneonultra
+package.domain = org.titanneon
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,json,txt
-version = 2.0.0
-requirements = python3,kivy
+source.include_exts = py,png,jpg,jpeg,kv,atlas,json,txt,svg
+version = 1.0.0
+requirements = python3,kivy,requests,plyer
 orientation = portrait
 fullscreen = 0
-
-# The app needs internet access to call the Groq API.
-android.permissions = INTERNET
+icon.filename = %(source.dir)s/titan_icon.png
+android.permissions = INTERNET,RECORD_AUDIO,READ_MEDIA_IMAGES
 android.api = 35
 android.minapi = 24
-
-# Pin python-for-android to a stable release using Python 3.11 recipes.
-# This avoids a newer Python 3.14 Android wheel compatibility failure.
+android.archs = arm64-v8a
 p4a.branch = v2024.01.21
 
-# Use the modern Android SDK installed by GitHub Actions.
-android.sdk_path = /usr/local/lib/android/sdk
+[buildozer]
+log_level = 2
+warn_on_root = 0

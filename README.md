@@ -1,32 +1,32 @@
-# TITAN AI Android project
+# TITAN NEON ULTRA
 
-This starter project turns TITAN into a Kivy Android app. It includes:
-- Groq chat using the OpenAI-compatible HTTPS endpoint
-- Local persistent memory, notes, personality settings, and chat history
-- API key entered at runtime and not written to app files
-- A GitHub Actions workflow to build a debug APK in the cloud
+A clean Android/Kivy project using the Obsidian Gold visual identity.
 
-## Files
-- `main.py` — Kivy app
-- `buildozer.spec` — Android package settings
-- `.github/workflows/build-apk.yml` — cloud APK build
+## Features in the source
 
-## Build on a phone using GitHub Actions
-1. Create a **private** GitHub repository.
-2. Upload these files while preserving the `.github/workflows/` folder.
-3. Open the repository's Actions tab and enable Actions if prompted.
-4. Run **Build TITAN Android APK** using **Run workflow**, or push a change.
-5. Open the completed workflow run, find Artifacts, and download `titan-ai-debug-apk`.
-6. Extract the ZIP on your phone and install the APK. Android may ask you to allow installs from that browser/file manager.
+- AI chat using a user-supplied Groq-compatible API key
+- Image, video, and voice generation endpoints with user-supplied provider credentials
+- Local chat history, notes, memories, prompt vault, and project workspaces
+- Image gallery and calculator
+- System health, backup, and settings screens
+- Black-and-gold UI and a custom vector logo
 
-## Important security notes
-- Never put a Groq API key in `main.py`, `buildozer.spec`, GitHub, or screenshots.
-- The app asks for the key each time it starts and keeps it in memory only.
-- This is appropriate for personal testing, not for distributing to other users. A key used in a mobile app can still be exposed while in use. For a public app, put the Groq key on a backend server you control and have the app call that backend.
-- Groq API use requires internet and is subject to account limits/pricing.
-- This is a debug APK for testing, not a signed Play Store release.
+Provider features require valid API credentials and service access. API keys are entered by the user in the app; do not commit keys to the repository.
 
-## Troubleshooting
-- If build fails, open the workflow run and copy the first meaningful error section (not secrets).
-- Android builds can take several minutes and the first build downloads the Android toolchain.
-- If the model is unavailable to your Groq account, update `MODEL` near the top of `main.py` to a currently available model from Groq's official model list.
+## Build with GitHub Actions
+
+1. Open the Actions tab.
+2. Select TITAN NEON ULTRA Android APK.
+3. Open the run started by the clean-project branch push.
+4. When it finishes successfully, open the run and download the TITAN-NEON-ULTRA-debug-apk artifact.
+5. Extract the artifact ZIP to get the APK.
+
+The workflow runs a Python syntax check and branding check before invoking Buildozer. A successful source commit is not the same as a successful APK build; use the Actions run status and artifact list to verify the result.
+
+## Local build
+
+Install Buildozer, Java 17, Android SDK/NDK dependencies, and librsvg2-bin, then run:
+
+    rsvg-convert -w 1024 -h 1024 titan_logo.svg -o titan_logo.png
+    rsvg-convert -w 512 -h 512 titan_logo.svg -o titan_icon.png
+    buildozer android debug

@@ -1,0 +1,66 @@
+name: TITAN NEON ULTRA Android APK
+
+on:
+  push:
+    branches:
+      - titan-neon-ultra-clean
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android debug APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out clean project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev librsvg2-bin
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer cython==0.29.36
+
+      - name: Render the new TITAN logo
+        run: |
+          rsvg-convert -w 1024 -h 1024 titan_logo.svg -o titan_logo.png
+          rsvg-convert -w 512 -h 512 titan_logo.svg -o titan_icon.png
+          file titan_logo.png titan_icon.png
+
+      - name: Verify clean branding and Python syntax
+        run: |
+          python -m py_compile main.py
+          if grep -nEi 'DSA|dsaai|org\.dsaai' main.py buildozer.spec README.md; then
+            echo "Legacy branding was found."
+            exit 1
+          fi
+          echo "Python syntax and clean-branding checks passed."
+
+      - name: Build debug APK
+        env:
+          BUILDOZER_WARN_ON_ROOT: "0"
+        run: buildozer android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TITAN-NEON-ULTRA-debug-apk
+          path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 14

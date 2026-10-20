@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#19170f"/><stop offset="1" stop-color="#030303"/></radialGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a6"/><stop offset=".35" stop-color="#e4b84c"/><stop offset=".7" stop-color="#a56b12"/><stop offset="1" stop-color="#ffe9a0"/></linearGradient>
+  <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+<circle cx="512" cy="512" r="405" fill="none" stroke="#6f4b12" stroke-width="7"/>
+<circle cx="512" cy="512" r="375" fill="none" stroke="url(#gold)" stroke-width="14"/>
+<circle cx="512" cy="512" r="330" fill="none" stroke="#5a4118" stroke-width="3" stroke-dasharray="5 22"/>
+<g filter="url(#glow)" fill="url(#gold)">
+  <path d="M300 302 L385 302 L426 362 L467 302 L552 302 L552 375 L505 375 L467 435 L426 435 L388 375 L347 375 L347 620 L300 620 Z"/>
+  <path d="M467 302 L724 302 L724 382 L626 382 L626 696 L545 696 L545 382 L467 382 Z"/>
+  <path d="M365 744 L659 744 L628 789 L396 789 Z"/>
+  <circle cx="512" cy="225" r="17"/>
+  <path d="M466 237 L482 204 L512 185 L542 204 L558 237 L536 237 L512 218 L488 237 Z"/>
+</g>
+<g fill="#f6d778"><circle cx="215" cy="512" r="7"/><circle cx="809" cy="512" r="7"/><circle cx="512" cy="809" r="7"/><circle cx="512" cy="215" r="7"/></g>
+</svg>
