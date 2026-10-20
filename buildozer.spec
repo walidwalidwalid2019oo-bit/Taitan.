@@ -1,6 +1,6 @@
 [app]
 
-title = DSA AI
+title = Taitan Prum
 package.name = dsaai
 package.domain = org.dsaai
 source.dir = .
