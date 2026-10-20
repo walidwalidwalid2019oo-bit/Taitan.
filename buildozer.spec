@@ -15,9 +15,9 @@ android.permissions = INTERNET
 android.api = 35
 android.minapi = 24
 
-# Build with the stable python-for-android branch by default.
-# If a future build requires a different toolchain, follow the current
-# Buildozer documentation and change these options accordingly.
+# Pin python-for-android to a stable release using Python 3.11 recipes.
+# This avoids a newer Python 3.14 Android wheel compatibility failure.
+p4a.branch = v2024.01.21
 
 # Use the modern Android SDK installed by GitHub Actions.
 android.sdk_path = /usr/local/lib/android/sdk
