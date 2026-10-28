@@ -77,15 +77,46 @@ def configure_data_dirs(app):
     for folder in (DATA_DIR, MEDIA_DIR):
         folder.mkdir(parents=True, exist_ok=True)
 
-# TITAN Obsidian Gold palette: near-black surfaces with warm metallic accents.
-BG = (0.018, 0.017, 0.014, 1)
-PANEL = (0.055, 0.049, 0.035, 1)
-PANEL2 = (0.085, 0.073, 0.047, 1)
-CYAN = (0.96, 0.72, 0.25, 1)       # kept as a compatibility name; now GOLD
-PURPLE = (0.72, 0.48, 0.13, 1)     # deep bronze accent
-WHITE = (0.96, 0.93, 0.84, 1)
-MUTED = (0.66, 0.61, 0.48, 1)
-GREEN = (0.88, 0.72, 0.32, 1)
+# TITAN Light/Dark themes. Colors are normalized RGBA values.
+THEMES = {
+    "Light": {
+        "BG": (1.0, 1.0, 1.0, 1),
+        "PANEL": (0.98, 0.98, 0.98, 1),       # #FAFAFA
+        "PANEL2": (0.94, 0.94, 0.94, 1),
+        "CYAN": (0.08, 0.32, 0.68, 1),       # accessible blue accent
+        "PURPLE": (0.31, 0.25, 0.58, 1),
+        "WHITE": (0.08, 0.08, 0.08, 1),      # foreground text
+        "MUTED": (0.35, 0.35, 0.35, 1),
+        "GREEN": (0.08, 0.42, 0.25, 1),
+    },
+    "Dark": {
+        "BG": (0.071, 0.071, 0.071, 1),       # #121212
+        "PANEL": (0.118, 0.118, 0.118, 1),    # #1E1E1E
+        "PANEL2": (0.16, 0.16, 0.16, 1),
+        "CYAN": (0.35, 0.72, 1.0, 1),
+        "PURPLE": (0.72, 0.58, 0.98, 1),
+        "WHITE": (0.95, 0.95, 0.95, 1),
+        "MUTED": (0.68, 0.68, 0.68, 1),
+        "GREEN": (0.35, 0.82, 0.55, 1),
+    },
+}
+BG = THEMES["Dark"]["BG"]
+PANEL = THEMES["Dark"]["PANEL"]
+PANEL2 = THEMES["Dark"]["PANEL2"]
+CYAN = THEMES["Dark"]["CYAN"]
+PURPLE = THEMES["Dark"]["PURPLE"]
+WHITE = THEMES["Dark"]["WHITE"]
+MUTED = THEMES["Dark"]["MUTED"]
+GREEN = THEMES["Dark"]["GREEN"]
+
+
+def apply_theme(name):
+    """Update shared theme colors; invalid values safely fall back to Dark."""
+    global BG, PANEL, PANEL2, CYAN, PURPLE, WHITE, MUTED, GREEN
+    palette = THEMES.get(name, THEMES["Dark"])
+    BG, PANEL, PANEL2 = palette["BG"], palette["PANEL"], palette["PANEL2"]
+    CYAN, PURPLE = palette["CYAN"], palette["PURPLE"]
+    WHITE, MUTED, GREEN = palette["WHITE"], palette["MUTED"], palette["GREEN"]
 
 
 def load_json(path, fallback):
@@ -203,11 +234,14 @@ class TitanApp(App):
             "groq_key": "", "pollinations_key": "",
             "personality": "You are TITAN, a friendly, honest, supportive AI. Explain clearly and admit uncertainty.",
             "memory_enabled": True,
+            "theme": "Dark",
             "model": DEFAULT_MODEL,
             "video_model": "google/veo-3.1-fast",
             "voice": "nova",
             "voice_auto_play": False,
         })
+        apply_theme(self.settings.get("theme", "Dark"))
+        Window.clearcolor = BG
         self.notes = load_json(NOTES_FILE, [])
         self.memories = load_json(MEMORY_FILE, [])
         self.chats = load_json(CHATS_FILE, [])
@@ -1452,6 +1486,13 @@ class TitanApp(App):
         self.personality_input = self.input_box("Describe how TITAN should talk...",
                                                 self.settings.get("personality", ""), multiline=True, height=120)
         content.add_widget(self.personality_input)
+        content.add_widget(self.label("APP THEME", 12, CYAN, 24, True))
+        from kivy.uix.spinner import Spinner
+        self.theme_setting = Spinner(text=self.settings.get("theme", "Dark"),
+                                     values=("Light", "Dark"),
+                                     size_hint_y=None, height=dp(46),
+                                     background_normal="", background_color=PANEL2, color=WHITE)
+        content.add_widget(self.theme_setting)
         from kivy.uix.checkbox import CheckBox
         memory_row = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
         self.memory_enabled_checkbox = CheckBox(active=self.settings.get("memory_enabled", True),
@@ -1480,10 +1521,19 @@ class TitanApp(App):
             "voice": self.voice_setting.text or "nova",
             "personality": self.personality_input.text.strip() or "You are TITAN, a helpful AI assistant.",
             "memory_enabled": bool(getattr(self, "memory_enabled_checkbox", None) and self.memory_enabled_checkbox.active),
+            "theme": getattr(self, "theme_setting", None).text if getattr(self, "theme_setting", None) else self.settings.get("theme", "Dark"),
         })
         if save_json(SETTINGS_FILE, self.settings):
+            apply_theme(self.settings.get("theme", "Dark"))
+            Window.clearcolor = BG
+            # Refresh the active page so every widget adopts the selected palette.
+            self.root_box.canvas.before.clear()
+            with self.root_box.canvas.before:
+                Color(*BG)
+                self._root_bg = RoundedRectangle(pos=self.root_box.pos, size=self.root_box.size)
             self.status_text = "SETTINGS SAVED"
-            self.popup("SETTINGS SAVED", "Settings saved locally.")
+            self.show_settings()
+            self.popup("THEME UPDATED", f"Settings saved. {self.settings.get('theme', 'Dark')} mode is active.")
         else:
             self.popup("SAVE ERROR", "Could not save settings. Check storage permissions.")
 
