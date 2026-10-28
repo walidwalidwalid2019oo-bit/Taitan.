@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - titan-neon-ultra-clean
+      - titan-ai-upgrades
   workflow_dispatch:
 
 permissions:
