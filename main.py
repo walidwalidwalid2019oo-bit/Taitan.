@@ -410,7 +410,7 @@ class TitanApp(App):
 
         # Providers sometimes return HTML line breaks; Kivy labels need newlines.
         content = str(content)
-        content = re.sub(r"<br\\s*/?>", "\\n", content, flags=re.IGNORECASE)
+        content = re.sub(r"<br\s*/?>", "\n", content, flags=re.IGNORECASE)
 
         color = CYAN if role == "assistant" else PURPLE
         bubble = NeonCard(orientation="vertical", size_hint_y=None)
