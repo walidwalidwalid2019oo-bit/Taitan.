@@ -77,15 +77,46 @@ def configure_data_dirs(app):
     for folder in (DATA_DIR, MEDIA_DIR):
         folder.mkdir(parents=True, exist_ok=True)
 
-# TITAN Obsidian Gold palette: near-black surfaces with warm metallic accents.
-BG = (0.018, 0.017, 0.014, 1)
-PANEL = (0.055, 0.049, 0.035, 1)
-PANEL2 = (0.085, 0.073, 0.047, 1)
-CYAN = (0.96, 0.72, 0.25, 1)       # kept as a compatibility name; now GOLD
-PURPLE = (0.72, 0.48, 0.13, 1)     # deep bronze accent
-WHITE = (0.96, 0.93, 0.84, 1)
-MUTED = (0.66, 0.61, 0.48, 1)
-GREEN = (0.88, 0.72, 0.32, 1)
+# TITAN Light/Dark themes. Colors are normalized RGBA values.
+THEMES = {
+    "Light": {
+        "BG": (1.0, 1.0, 1.0, 1),
+        "PANEL": (0.98, 0.98, 0.98, 1),       # #FAFAFA
+        "PANEL2": (0.94, 0.94, 0.94, 1),
+        "CYAN": (0.08, 0.32, 0.68, 1),       # accessible blue accent
+        "PURPLE": (0.31, 0.25, 0.58, 1),
+        "WHITE": (0.08, 0.08, 0.08, 1),      # foreground text
+        "MUTED": (0.35, 0.35, 0.35, 1),
+        "GREEN": (0.08, 0.42, 0.25, 1),
+    },
+    "Dark": {
+        "BG": (0.071, 0.071, 0.071, 1),       # #121212
+        "PANEL": (0.118, 0.118, 0.118, 1),    # #1E1E1E
+        "PANEL2": (0.16, 0.16, 0.16, 1),
+        "CYAN": (0.35, 0.72, 1.0, 1),
+        "PURPLE": (0.72, 0.58, 0.98, 1),
+        "WHITE": (0.95, 0.95, 0.95, 1),
+        "MUTED": (0.68, 0.68, 0.68, 1),
+        "GREEN": (0.35, 0.82, 0.55, 1),
+    },
+}
+BG = THEMES["Dark"]["BG"]
+PANEL = THEMES["Dark"]["PANEL"]
+PANEL2 = THEMES["Dark"]["PANEL2"]
+CYAN = THEMES["Dark"]["CYAN"]
+PURPLE = THEMES["Dark"]["PURPLE"]
+WHITE = THEMES["Dark"]["WHITE"]
+MUTED = THEMES["Dark"]["MUTED"]
+GREEN = THEMES["Dark"]["GREEN"]
+
+
+def apply_theme(name):
+    """Update shared theme colors; invalid values safely fall back to Dark."""
+    global BG, PANEL, PANEL2, CYAN, PURPLE, WHITE, MUTED, GREEN
+    palette = THEMES.get(name, THEMES["Dark"])
+    BG, PANEL, PANEL2 = palette["BG"], palette["PANEL"], palette["PANEL2"]
+    CYAN, PURPLE = palette["CYAN"], palette["PURPLE"]
+    WHITE, MUTED, GREEN = palette["WHITE"], palette["MUTED"], palette["GREEN"]
 
 
 def load_json(path, fallback):
@@ -202,11 +233,15 @@ class TitanApp(App):
         self.settings = load_json(SETTINGS_FILE, {
             "groq_key": "", "pollinations_key": "",
             "personality": "You are TITAN, a friendly, honest, supportive AI. Explain clearly and admit uncertainty.",
+            "memory_enabled": True,
+            "theme": "Dark",
             "model": DEFAULT_MODEL,
             "video_model": "google/veo-3.1-fast",
             "voice": "nova",
             "voice_auto_play": False,
         })
+        apply_theme(self.settings.get("theme", "Dark"))
+        Window.clearcolor = BG
         self.notes = load_json(NOTES_FILE, [])
         self.memories = load_json(MEMORY_FILE, [])
         self.chats = load_json(CHATS_FILE, [])
@@ -471,18 +506,123 @@ class TitanApp(App):
         self.chat_input.text = ""
         self.add_chat_bubble("user", message)
         self.add_status("TITAN IS THINKING...")
-        # Snapshot the conversation on the UI thread to avoid worker/UI races.
-        history = list(self.current_messages[-20:])
+        # Explicit, user-controlled memory: only save when the user asks TITAN to remember.
+        self._remember_from_explicit_request(message)
+        # Snapshot a bounded amount of recent history on the UI thread.
+        history = self._build_context_history()
         threading.Thread(target=self._chat_worker, args=(message, key, history), daemon=True).start()
+
+    def _remember_from_explicit_request(self, message):
+        """Save only clear 'remember that/this:' requests; never auto-profile users."""
+        match = re.match(r"^\s*(?:titan[, :]\s*)?(?:please\s+)?remember\s+(?:that\s+|this\s*:?\s*)?(.+)$",
+                         message, flags=re.IGNORECASE | re.DOTALL)
+        if not match:
+            return
+        text = match.group(1).strip()[:700]
+        if len(text) < 3:
+            return
+        # Avoid silently storing credentials or highly private contact details.
+        sensitive_terms = ("password", "passcode", "api key", "secret key", "access token",
+                           "private key", "credit card", "bank account")
+        if any(term in text.lower() for term in sensitive_terms):
+            Clock.schedule_once(lambda dt: self.popup(
+                "MEMORY NOT SAVED", "For safety, TITAN will not auto-save passwords, keys, or financial credentials."), 0)
+            return
+        normalized = text.casefold()
+        if any(str(item.get("text", "")).casefold() == normalized for item in self.memories):
+            return
+        self.memories.append({"text": text, "date": datetime.now().isoformat(timespec="minutes"),
+                              "source": "explicit chat request"})
+        self.memories = self.memories[-100:]
+        if save_json(MEMORY_FILE, self.memories):
+            Clock.schedule_once(lambda dt: self.add_status("MEMORY SAVED"), 0)
+
+    def _build_context_history(self, max_chars=18000, max_messages=30):
+        """Keep recent turns under a conservative character budget (not a token guarantee)."""
+        selected = []
+        used = 0
+        for item in reversed(self.current_messages[-max_messages:]):
+            content = str(item.get("content", ""))
+            if not content:
+                continue
+            if used + len(content) > max_chars:
+                remaining = max_chars - used
+                if remaining < 300:
+                    break
+                content = content[-remaining:]
+            selected.append({"role": item.get("role", "user"), "content": content})
+            used += len(content)
+            if used >= max_chars:
+                break
+        selected.reverse()
+        return selected
+
+    def _query_needs_reference(self, message):
+        text = message.lower()
+        markers = ("latest", "right now", "current", "currently", "today", "this week",
+                   "recent news", "breaking news", "weather", "stock price", "exchange rate",
+                   "who won", "newest version", "as of 2026")
+        return any(marker in text for marker in markers)
+
+    def _quick_reference_lookup(self, query):
+        """Try a no-key DuckDuckGo Instant Answer lookup; results can be incomplete/stale."""
+        try:
+            response = requests.get(
+                "https://api.duckduckgo.com/",
+                params={"q": query[:240], "format": "json", "no_html": 1, "skip_disambig": 1},
+                headers={"User-Agent": "TITAN-Neon-Ultra/1.0"},
+                timeout=(5, 8),
+            )
+            if response.status_code >= 400:
+                return ""
+            data = response.json()
+            pieces = []
+            abstract = re.sub(r"<[^>]+>", "", str(data.get("AbstractText", ""))).strip()
+            abstract_url = str(data.get("AbstractURL", "")).strip()
+            if abstract:
+                pieces.append(abstract + (f" Source: {abstract_url}" if abstract_url else ""))
+            for item in data.get("RelatedTopics", [])[:4]:
+                if not isinstance(item, dict):
+                    continue
+                text = re.sub(r"<[^>]+>", "", str(item.get("Text", ""))).strip()
+                url = str(item.get("FirstURL", "")).strip()
+                if text:
+                    pieces.append(text + (f" Source: {url}" if url else ""))
+            return "\n".join(pieces[:5])[:3500]
+        except Exception:
+            return ""
 
     def _chat_worker(self, message, key, history):
         try:
             personality = self.settings.get("personality") or "You are a helpful AI assistant."
-            memory_context = "\nSaved user memories:\n" + "\n".join(
-                "- " + str(item.get("text", "")) for item in self.memories[-12:]
-            ) if self.memories else ""
+            memory_items = self.memories[-20:] if self.settings.get("memory_enabled", True) else []
+            memory_context = "\nSaved user memories (use only when relevant):\n" + "\n".join(
+                "- " + str(item.get("text", ""))[:500] for item in memory_items
+            ) if memory_items else ""
             project_context = "\nActive project workspace: " + str(getattr(self, "active_project", "General"))
-            messages = [{"role": "system", "content": personality + memory_context + project_context}]
+            reliability_rules = (
+                "\n\nReliability rules: Be honest and precise. Never invent facts, sources, quotes, "
+                "or capabilities. If unsure, say so and ask a useful clarifying question. Distinguish "
+                "verified facts from guesses. Do not claim you searched the live web unless reference "
+                "results are supplied. This chat sends text only; do not claim to have seen an image, "
+                "heard audio, or watched video unless that media was actually provided to the model. "
+                "Use a clear, natural tone and avoid unnecessary long lists or repeated offers."
+            )
+            reference_context = ""
+            if self._query_needs_reference(message):
+                lookup = self._quick_reference_lookup(message)
+                if lookup:
+                    reference_context = (
+                        "\n\nOptional quick reference results (DuckDuckGo Instant Answer; may be "
+                        "incomplete or stale; verify before relying on them):\n" + lookup
+                    )
+                else:
+                    reference_context = (
+                        "\n\nThe user asks for potentially current information, but no reliable "
+                        "reference result was available. Be transparent that you cannot verify it live."
+                    )
+            messages = [{"role": "system", "content": personality + memory_context + project_context +
+                         reliability_rules + reference_context}]
             messages.extend(history)  # includes the current user message exactly once
             response = requests.post(
                 GROQ_URL,
@@ -1346,6 +1486,21 @@ class TitanApp(App):
         self.personality_input = self.input_box("Describe how TITAN should talk...",
                                                 self.settings.get("personality", ""), multiline=True, height=120)
         content.add_widget(self.personality_input)
+        content.add_widget(self.label("APP THEME", 12, CYAN, 24, True))
+        from kivy.uix.spinner import Spinner
+        self.theme_setting = Spinner(text=self.settings.get("theme", "Dark"),
+                                     values=("Light", "Dark"),
+                                     size_hint_y=None, height=dp(46),
+                                     background_normal="", background_color=PANEL2, color=WHITE)
+        content.add_widget(self.theme_setting)
+        from kivy.uix.checkbox import CheckBox
+        memory_row = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(8))
+        self.memory_enabled_checkbox = CheckBox(active=self.settings.get("memory_enabled", True),
+                                                size_hint_x=None, width=dp(44), color=CYAN)
+        memory_row.add_widget(self.memory_enabled_checkbox)
+        memory_row.add_widget(self.label("USE SAVED MEMORY IN AI CHAT", 11, WHITE, 30, True))
+        content.add_widget(memory_row)
+        content.add_widget(self.label("Type 'remember that ...' in chat to save a memory. Manage or clear memories in the MEMORY screen.", 10, MUTED, 42))
         content.add_widget(self.label("API keys are stored locally in settings.json. Do not share that file.", 10, MUTED, 48))
         save = NeonButton(text="SAVE SETTINGS")
         save.bind(on_release=self.save_settings)
@@ -1365,10 +1520,20 @@ class TitanApp(App):
             "video_model": self.video_model_setting.text.strip() or "google/veo-3.1-fast",
             "voice": self.voice_setting.text or "nova",
             "personality": self.personality_input.text.strip() or "You are TITAN, a helpful AI assistant.",
+            "memory_enabled": bool(getattr(self, "memory_enabled_checkbox", None) and self.memory_enabled_checkbox.active),
+            "theme": getattr(self, "theme_setting", None).text if getattr(self, "theme_setting", None) else self.settings.get("theme", "Dark"),
         })
         if save_json(SETTINGS_FILE, self.settings):
+            apply_theme(self.settings.get("theme", "Dark"))
+            Window.clearcolor = BG
+            # Refresh the active page so every widget adopts the selected palette.
+            self.root_box.canvas.before.clear()
+            with self.root_box.canvas.before:
+                Color(*BG)
+                self._root_bg = RoundedRectangle(pos=self.root_box.pos, size=self.root_box.size)
             self.status_text = "SETTINGS SAVED"
-            self.popup("SETTINGS SAVED", "Settings saved locally.")
+            self.show_settings()
+            self.popup("THEME UPDATED", f"Settings saved. {self.settings.get('theme', 'Dark')} mode is active.")
         else:
             self.popup("SAVE ERROR", "Could not save settings. Check storage permissions.")
 
