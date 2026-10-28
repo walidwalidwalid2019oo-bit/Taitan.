@@ -9,6 +9,7 @@ import ast
 import json
 import math
 import os
+import re
 import shutil
 import threading
 import socket
@@ -260,9 +261,17 @@ class TitanApp(App):
         self.root_box.add_widget(self.header(title, subtitle))
 
     def add_status(self, text=None):
+        """Update one status line instead of adding a new label each time."""
         if text is not None:
             self.status_text = text
-        self.root_box.add_widget(self.label(self.status_text, 10, GREEN, 22))
+
+        current = getattr(self, "_status_label", None)
+        if current is not None and current.parent is self.root_box:
+            current.text = self.status_text
+            return
+
+        self._status_label = self.label(self.status_text, 10, GREEN, 22)
+        self.root_box.add_widget(self._status_label)
 
     def popup(self, title, message):
         box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
@@ -371,7 +380,12 @@ class TitanApp(App):
     def show_chat(self, *_):
         self.page = "CHAT"
         self.set_page("TITAN CHAT", "TALK • ASK • BUILD")
-        scroll = ScrollView()
+        scroll = ScrollView(
+            do_scroll_x=False,
+            bar_width=dp(3),
+            scroll_type=["bars", "content"],
+        )
+        self.chat_scroll = scroll
         self.chat_area = BoxLayout(orientation="vertical", spacing=dp(8), size_hint_y=None)
         self.chat_area.bind(minimum_height=self.chat_area.setter("height"))
         scroll.add_widget(self.chat_area)
@@ -390,23 +404,54 @@ class TitanApp(App):
         self.add_status()
 
     def add_chat_bubble(self, role, content, persist=True):
+        """Add a message bubble whose height follows its actual wrapped text."""
         if not hasattr(self, "chat_area"):
             return
+
+        # Providers sometimes return HTML line breaks; Kivy labels need newlines.
+        content = str(content)
+        content = re.sub(r"<br\\s*/?>", "\\n", content, flags=re.IGNORECASE)
+
         color = CYAN if role == "assistant" else PURPLE
         bubble = NeonCard(orientation="vertical", size_hint_y=None)
-        bubble.add_widget(self.label("TITAN" if role == "assistant" else "YOU", 10, color, 20, True))
-        text = self.label(content, 14, WHITE, max(48, min(300, 24 + len(str(content)) // 2)))
-        text.text_size = (max(100, Window.width - dp(90)), None)
+        bubble.bind(minimum_height=bubble.setter("height"))
+
+        bubble.add_widget(self.label(
+            "TITAN" if role == "assistant" else "YOU",
+            10, color, 20, True
+        ))
+
+        text = Label(
+            text=content,
+            color=WHITE,
+            font_size="14sp",
+            halign="left",
+            valign="top",
+            size_hint_y=None,
+        )
+
+        def update_text_width(*_):
+            text.text_size = (max(dp(100), bubble.width - dp(30)), None)
+
+        text.bind(width=lambda *_: update_text_width())
+        text.bind(
+            texture_size=lambda instance, size:
+            setattr(instance, "height", size[1] + dp(8))
+        )
+        bubble.bind(width=lambda *_: update_text_width())
         bubble.add_widget(text)
+
         if role == "assistant":
             speak = NeonButton(text="SPEAK RESPONSE", accent="purple")
             speak.height = dp(34)
-            speak.bind(on_release=lambda _btn, t=str(content): self.speak_text(t))
+            speak.bind(on_release=lambda _btn, t=content: self.speak_text(t))
             bubble.add_widget(speak)
-        bubble.height = sum(getattr(child, "height", dp(30)) for child in bubble.children) + dp(38)
+
         self.chat_area.add_widget(bubble)
+        Clock.schedule_once(lambda dt: setattr(self.chat_scroll, "scroll_y", 0), 0.15)
+
         if persist:
-            self.current_messages.append({"role": role, "content": str(content)})
+            self.current_messages.append({"role": role, "content": content})
             self._persist_chat()
 
     def new_chat(self, *_):
